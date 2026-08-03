@@ -119,7 +119,7 @@ def app(request, search_class):
         endpoint=dict(
             search_class='conftest:TestSearch',
         )
-    def test_mytest(app, db, open_search):
+    def test_mytest(app, db, search):
         # ...
 
     This will parameterize the default 'recid' endpoint in
@@ -135,7 +135,7 @@ def app(request, search_class):
                 search_class='conftest:TestSearch',
             )
         )
-    def test_mytest(app, db, open_search):
+    def test_mytest(app, db, search):
         # ...
 
     This will fully parameterize RECORDS_REST_ENDPOINTS.
@@ -161,7 +161,7 @@ def app(request, search_class):
         RECORDS_REST_DEFAULT_UPDATE_PERMISSION_FACTORY=None,
         RECORDS_REST_DEFAULT_RESULTS_SIZE=10,
         #RECORDS_REST_DEFAULT_SEARCH_INDEX=search_class.Meta.index,
-        RECORDS_REST_DEFAULT_SEARCH_INDEX="test-weko",
+        RECORDS_REST_DEFAULT_SEARCH_INDEX="weko",
         RECORDS_REST_FACETS={
             #search_class.Meta.index: {
             "test-weko": {
@@ -187,7 +187,7 @@ def app(request, search_class):
         },
         SERVER_NAME="localhost:5000",
         SEARCH_INDEX_PREFIX="test-",
-        SEARCH_UI_SEARCH_INDEX="{}-weko".format("test"),
+        SEARCH_UI_SEARCH_INDEX="weko",
         CACHE_TYPE="redis",
         CACHE_REDIS_DB=0,
         CACHE_REDIS_HOST="redis",
@@ -206,7 +206,7 @@ def app(request, search_class):
 
     #app.config["RECORDS_REST_ENDPOINTS"]["recid"]["search_class"] = \
     #    search_class
-    app.config["RECORDS_REST_ENDPOINTS"]["recid"]["search_index"]="test-weko"
+    app.config["RECORDS_REST_ENDPOINTS"]["recid"]["search_index"]="weko"
     app.config["RECORDS_REST_ENDPOINTS"]["recid"]["search_type"]="item-v1.0.0"
     #app.config["RECORDS_REST_ENDPOINTS"]["recid"]["search_factory_imp"]="weko_search_ui.query.es_search_factory"
 
@@ -364,7 +364,7 @@ def indexed_records(app, search_index, test_records):
     indexer=RecordIndexer()
     for pid, record in test_records:
         indexer.index_by_id(record.id)
-    current_search.flush_and_refresh(index='test-weko')
+    current_search.flush_and_refresh(index='weko')
     yield test_records
 
 
@@ -430,7 +430,7 @@ def indexed_10records(app, db, search_index, item_type, indexes):
         pid, record = register_record(i, indexer, index_path)
         result.append((pid, record))
     db.session.commit()
-    current_search.flush_and_refresh(index="test-weko")
+    current_search.flush_and_refresh(index="weko")
     return result
 
 @pytest.fixture()
@@ -443,12 +443,12 @@ def indexed_100records(app, db, search_index, item_type,indexes):
         pid, record = register_record(i, indexer, index_path)
         result.append((pid,record))
     db.session.commit()
-    current_search.flush_and_refresh(index="test-weko")
+    current_search.flush_and_refresh(index="weko")
 
     return result
 
 
-@pytest.yield_fixture(scope="session")
+@pytest.fixture(scope="session")
 def test_patch():
     """A JSON patch."""
     yield [{"op": "replace", "path": "/year", "value": 1985}]
@@ -544,7 +544,11 @@ def item_type(db):
     with db.session.begin_nested():
         db.session.add(item_type_name)
         db.session.add(item_type)
+    db.session.commit()
+
+    with db.session.begin_nested():
         db.session.add(item_type_mapping)
+    db.session.commit()
 
     return item_type, item_type_mapping
 
@@ -578,7 +582,7 @@ def facet_search(db):
     db.session.add(control_number)
     db.session.commit()
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def aggs_and_facet(redis_connect, facet_search):
     test_redis_key = "test_facet_search_query_has_permission"
     redis_connect.delete(test_redis_key)
