@@ -15,30 +15,35 @@ from mock import patch
 from sqlalchemy.exc import SQLAlchemyError
 from invenio_records.models import RecordMetadata
 
+
+# .tox/c1/bin/pytest --cov=invenio_records_rest tests/test_views_item_delete.py::test_valid_delete -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-records-rest/.tox/c1/tmp
 def test_valid_delete(app, indexed_records):
     """Test VALID record delete request (DELETE .../records/<record_id>)."""
+    records_info = [(pid.pid_value, pid.object_uuid) for pid, record in indexed_records]
     # Test with and without headers
     for i, headers in enumerate([[], [("Accept", "video/mp4")]]):
-        pid, record = indexed_records[i]
+        pid_value, object_uuid = records_info[i]
         with app.test_client() as client:
-            assert PersistentIdentifier.query.filter_by(pid_value="1").first().status==PIDStatus.REGISTERED
-            res = client.delete(record_url(pid), headers=headers)
+            assert PersistentIdentifier.query.filter_by(pid_value=pid_value).first().status==PIDStatus.REGISTERED
+            res = client.delete(record_url(pid_value), headers=headers)
             assert res.status_code == 204
-            assert PersistentIdentifier.query.filter_by(pid_value="1").first().status==PIDStatus.DELETED
-            assert RecordMetadata.query.filter_by(id=pid.object_uuid).first().json==None
+            assert PersistentIdentifier.query.filter_by(pid_value=pid_value).first().status==PIDStatus.DELETED
+            assert RecordMetadata.query.filter_by(id=object_uuid).first().json==None
 
-            res = client.get(record_url(pid))
+            res = client.get(record_url(pid_value))
             assert res.status_code == 410
 
 
+# .tox/c1/bin/pytest --cov=invenio_records_rest tests/test_views_item_delete.py::test_delete_deleted -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-records-rest/.tox/c1/tmp
 def test_delete_deleted(app, indexed_records):
     """Test deleting a perviously deleted record."""
     pid, record = indexed_records[0]
+    pid_value = pid.pid_value
 
     with app.test_client() as client:
-        res = client.delete(record_url(pid))
+        res = client.delete(record_url(pid_value))
         assert res.status_code == 204
-        res = client.delete(record_url(pid))
+        res = client.delete(record_url(pid_value))
         assert res.status_code == 410
         data = get_json(res)
         assert "message" in data
@@ -53,9 +58,12 @@ def test_delete_notfound(app, indexed_records):
         assert res.status_code == 404
 
 
+# .tox/c1/bin/pytest --cov=invenio_records_rest tests/test_views_item_delete.py::test_delete_with_sqldatabase_error -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-records-rest/.tox/c1/tmp
 def test_delete_with_sqldatabase_error(app, indexed_records):
     """Test VALID record delete request (GET .../records/<record_id>)."""
     pid, record = indexed_records[0]
+    pid_value = pid.pid_value
+    object_uuid = pid.object_uuid
 
     with app.test_client() as client:
 
@@ -63,14 +71,14 @@ def test_delete_with_sqldatabase_error(app, indexed_records):
             raise SQLAlchemyError()
 
         # Force an SQLAlchemy error that will rollback the transaction.
-        assert PersistentIdentifier.query.filter_by(pid_value="1").first().status==PIDStatus.REGISTERED
+        assert PersistentIdentifier.query.filter_by(pid_value=pid_value).first().status==PIDStatus.REGISTERED
         with patch.object(PersistentIdentifier, "delete", side_effect=raise_error):
-            res = client.delete(record_url(pid))
+            res = client.delete(record_url(pid_value))
             assert res.status_code == 204
-            assert PersistentIdentifier.query.filter_by(pid_value="1").first().status==PIDStatus.REGISTERED
-            assert RecordMetadata.query.filter_by(id=pid.object_uuid).first().json is not None
+            assert PersistentIdentifier.query.filter_by(pid_value=pid_value).first().status==PIDStatus.REGISTERED
+            assert RecordMetadata.query.filter_by(id=object_uuid).first().json is not None
 
 
     with app.test_client() as client:
-        res = client.get(record_url(pid))
+        res = client.get(record_url(pid_value))
         assert res.status_code == 200
