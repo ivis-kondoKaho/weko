@@ -14,6 +14,7 @@ from helpers import create_record
 from invenio_pidstore.models import PersistentIdentifier, PIDStatus, RecordIdentifier
 
 
+# .tox/c1/bin/pytest --cov=invenio_records_rest tests/test_pid_resolver.py::test_record_resolution -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-records-rest/.tox/c1/tmp
 def test_record_resolution(app, db, test_records, item_type):
     """Test resolution of PIDs to records."""
     # OK PID
@@ -46,31 +47,35 @@ def test_record_resolution(app, db, test_records, item_type):
     db.session.commit()
 
     headers = [("Accept", "application/json")]
+    pid_del_value = pid_del.pid_value
+    pid_noobj_value = pid_noobj.pid_value
+    pid_red_doi_value = pid_red_doi.pid_value
+    pid_red_value = pid_red.pid_value
     with app.test_client() as client:
         # PID deleted
         res = client.get(
-            url_for("invenio_records_rest.recid_item", pid_value=pid_del.pid_value),
+            url_for("invenio_records_rest.recid_item", pid_value=pid_del_value),
             headers=headers,
         )
         assert res.status_code == 410
 
         # PID missing object
         res = client.get(
-            url_for("invenio_records_rest.recid_item", pid_value=pid_noobj.pid_value),
+            url_for("invenio_records_rest.recid_item", pid_value=pid_noobj_value),
             headers=headers,
         )
         assert res.status_code == 500
 
         # Redirected invalid endpoint
         res = client.get(
-            url_for("invenio_records_rest.recid_item", pid_value=pid_red_doi.pid_value),
+            url_for("invenio_records_rest.recid_item", pid_value=pid_red_doi_value),
             headers=headers,
         )
         assert res.status_code == 500
 
         # Redirected
         res = client.get(
-            url_for("invenio_records_rest.recid_item", pid_value=pid_red.pid_value),
+            url_for("invenio_records_rest.recid_item", pid_value=pid_red_value),
             headers=headers,
         )
         assert res.status_code == 301

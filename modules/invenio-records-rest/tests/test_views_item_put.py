@@ -12,8 +12,7 @@ import json
 
 import mock
 import pytest
-from conftest import IndexFlusher
-from helpers import _mock_validate_fail, assert_hits_len, get_json, record_url
+from helpers import _mock_validate_fail, assert_hits_len, get_json, record_url, IndexFlusher
 from invenio_records.models import RecordMetadata
 
 
@@ -100,8 +99,9 @@ def test_put_on_deleted(
             # assert res.status_code == 410
 
 
+# .tox/c1/bin/pytest --cov=invenio_records_rest tests/test_views_item_put.py::test_invalid_put -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-records-rest/.tox/c1/tmp
 @pytest.mark.parametrize("charset", ["", ";charset=utf-8"])
-def test_invalid_put(app, search, test_records, charset, search_url):
+def test_invalid_put(app, search, test_records, charset, search_url, search_index, facet_search, aggs_and_facet):
     """Test INVALID record put request (PUT .../records/<record_id>)."""
     HEADERS = [
         ("Accept", "application/json"),

@@ -11,14 +11,27 @@
 import copy
 import json
 import uuid
+from urllib.parse import parse_qs, urlparse
 
 from flask import url_for
+from jsonschema.exceptions import ValidationError
+
 from invenio_db import db
 from invenio_pidstore import current_pidstore
 from invenio_records import Record
-from jsonschema.exceptions import ValidationError
-from urllib.parse import parse_qs, urlparse
+from invenio_search import current_search
 
+
+class IndexFlusher(object):
+    """Simple object to flush an index."""
+
+    def __init__(self, search_class):
+        """Initialize instance."""
+        self.search_class = search_class
+
+    def flush_and_wait(self):
+        """Flush index and wait until operation is fully done."""
+        current_search.flush_and_refresh(self.search_class.Meta.index)
 
 
 def get_json(response):

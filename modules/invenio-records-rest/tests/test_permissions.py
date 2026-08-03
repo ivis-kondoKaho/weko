@@ -14,8 +14,9 @@ import json
 from helpers import record_url
 
 
+# .tox/c1/bin/pytest --cov=invenio_records_rest tests/test_permissions.py::test_default_permissions -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-records-rest/.tox/c1/tmp
 def test_default_permissions(
-    app, default_permissions, indexed_10records, record_data10, search_url, test_records, indexed_records, aggs_and_facet
+    app, default_permissions, indexed_10records, record_data10, search_url, test_records, indexed_records, facet_search, aggs_and_facet
 ):
     """Test default create permissions."""
     pid, record = indexed_10records[0]

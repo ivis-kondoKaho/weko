@@ -12,8 +12,7 @@ import json
 
 import mock
 import pytest
-from conftest import IndexFlusher
-from helpers import _mock_validate_fail, assert_hits_len, get_json, record_url
+from helpers import _mock_validate_fail, assert_hits_len, get_json, record_url, IndexFlusher
 from invenio_records.models import RecordMetadata
 
 @pytest.mark.parametrize(

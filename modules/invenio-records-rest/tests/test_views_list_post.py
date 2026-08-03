@@ -10,12 +10,11 @@
 
 import json
 
-import mock
+from unittest import mock
 import pytest
-from conftest import IndexFlusher
-from helpers import _mock_validate_fail, assert_hits_len, get_json, record_url
+from helpers import _mock_validate_fail, assert_hits_len, get_json, record_url, IndexFlusher
 from invenio_records.models import RecordMetadata
-from mock import patch
+from unittest.mock import patch
 from sqlalchemy.exc import SQLAlchemyError
 
 
@@ -24,7 +23,7 @@ from sqlalchemy.exc import SQLAlchemyError
     "content_type", ["application/json", "application/json;charset=utf-8"]
 )
 def test_valid_create(
-    app, db, search, test_data, search_url, search_class, content_type
+    app, db, search, test_data, search_url, search_class, content_type, search_index, facet_search, aggs_and_facet
 ):
     """Test VALID record creation request (POST .../records/)."""
     with app.test_client() as client:
@@ -60,10 +59,11 @@ def test_valid_create(
         assert_hits_len(res, 1)
 
 
+# .tox/c1/bin/pytest --cov=invenio_records_rest tests/test_views_list_post.py::test_invalid_create -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-records-rest/.tox/c1/tmp
 @pytest.mark.parametrize(
     "content_type", ["application/json", "application/json;charset=utf-8"]
 )
-def test_invalid_create(app, db, search, test_data, search_url, content_type):
+def test_invalid_create(app, db, search, test_data, search_url, content_type, search_index, facet_search, aggs_and_facet):
     """Test INVALID record creation request (POST .../records/)."""
     with app.test_client() as client:
         HEADERS = [("Accept", "application/json"), ("Content-Type", content_type)]

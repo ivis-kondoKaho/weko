@@ -7,18 +7,25 @@
 # under the terms of the MIT License; see LICENSE file for more details.
 
 """Search tests."""
-
-import re
-
 import pytest
+import re
+from unittest.mock import patch
+
 from flask import url_for, current_app
-from helpers import assert_hits_len, get_json, parse_url, to_relative_url
-from mock import patch
 
 from invenio_accounts.testutils import login_user_via_session
-def test_json_result_serializer(app, indexed_10records, search_url, admin_settings):
+
+from helpers import assert_hits_len, get_json, parse_url, to_relative_url
+
+
+# .tox/c1/bin/pytest --cov=invenio_records_rest tests/test_views_search.py::test_json_result_serializer -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-records-rest/.tox/c1/tmp
+def test_json_result_serializer(app, indexed_10records, search_url, admin_settings, search_index, facet_search, aggs_and_facet):
     """JSON result."""
     with app.test_client() as client:
+        pid, db_record = indexed_10records[0]
+        pid_value = pid.pid_value
+        db_record_dump = db_record.dumps()
+
         # Get a query with only one record
         res = client.get(search_url, query_string={"q": "control_number:3"})
         assert_hits_len(res, 1)
@@ -30,14 +37,13 @@ def test_json_result_serializer(app, indexed_10records, search_url, admin_settin
         for k in ["id", "created", "updated", "metadata", "links"]:
             assert k in record
 
-        pid, db_record = indexed_10records[0]
-        assert record["id"] == pid.pid_value
-        db_record_dump = db_record.dumps()
+        assert record["id"] == pid_value
         for k in ["title", "control_number"]:
             assert record["metadata"][k] == db_record_dump[k]
 
 
-def test_page_size(app, indexed_10records, search_url, admin_settings):
+# .tox/c1/bin/pytest --cov=invenio_records_rest tests/test_views_search.py::test_page_size -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-records-rest/.tox/c1/tmp
+def test_page_size(app, indexed_10records, search_url, admin_settings, search_index, facet_search, aggs_and_facet):
     """Test page and size parameters."""
     with app.test_client() as client:
         # Limit records
@@ -62,15 +68,17 @@ def test_page_size(app, indexed_10records, search_url, admin_settings):
         assert "message" in get_json(res)
 
 
-def test_page_size_without_size_in_request(app, indexed_10records, search_url, admin_settings):
+# .tox/c1/bin/pytest --cov=invenio_records_rest tests/test_views_search.py::test_page_size_without_size_in_request -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-records-rest/.tox/c1/tmp
+def test_page_size_without_size_in_request(app, indexed_10records, search_url, admin_settings, search_index, facet_search, aggs_and_facet):
     """Test default size parameter."""
     with app.test_client() as client:
         res = client.get(search_url, query_string=dict(page=1))
         assert_hits_len(res, len(indexed_10records))
 
 
+# .tox/c1/bin/pytest --cov=invenio_records_rest tests/test_views_search.py::test_page_size_without_size_in_request_with_five_as_default -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-records-rest/.tox/c1/tmp
 def test_page_size_without_size_in_request_with_five_as_default(
-    app, indexed_10records, search_url, admin_settings
+    app, indexed_10records, search_url, admin_settings, search_index, facet_search, aggs_and_facet
 ):
     """Test custom default page parameter."""
     config = {"RECORDS_REST_DEFAULT_RESULTS_SIZE": 2}
@@ -78,13 +86,14 @@ def test_page_size_without_size_in_request_with_five_as_default(
         res = client.get(search_url, query_string=dict(page=1))
         assert_hits_len(res, 2)
 
+
 @pytest.mark.parametrize('app', [dict(
     max_result_window=20
 )], indirect=['app'])
 def test_page_size_exceed_max_result_window(app,indexed_100records, aggs_and_facet, search_user, admin_settings, account_redis, search_url):
     # In this test, max_result_window is set to 20
     email = search_user["email"]
-    
+
     page_cache = email
     args_cache = f"{email}_url_args"
     max_cache = f"{email}_max_result"
@@ -111,11 +120,11 @@ def test_page_size_exceed_max_result_window(app,indexed_100records, aggs_and_fac
             order=12,
         )
     )
-        
+
     import json
     with app.test_client() as client:
         login_user_via_session(client, search_user["obj"])
-        
+
         # The page is the first page where page*size>max_result_window
         res = client.get(search_url, query_string=dict(page=3, size=7))
         res_control_numbers = [d["metadata"]["control_number"] for d in get_json(res)["hits"]["hits"]]
@@ -143,7 +152,7 @@ def test_page_size_exceed_max_result_window(app,indexed_100records, aggs_and_fac
         assert res_control_numbers == ["36", "37", "38", "39", "40", "41", "42"]
         assert json.loads(account_redis.get(page_cache)) == {"3":{"control_number":14.0},"4":{"control_number":21.0},"6":{"control_number":35.0}}
         assert json.loads(account_redis.get(max_cache)) == {"1":{"control_number":14.0},"2":{"control_number":34.0}}
-        
+
         # cache for page-1 not exists, Target exist in max_result cache
         res = client.get(search_url, query_string=dict(page=8, size=7))
         res_control_numbers = [d["metadata"]["control_number"] for d in get_json(res)["hits"]["hits"]]
@@ -157,12 +166,14 @@ def test_page_size_exceed_max_result_window(app,indexed_100records, aggs_and_fac
         assert res_control_numbers == ["45", "46", "47", "48", "49", "5", "50","51","52","53"]
         assert json.loads(account_redis.get(page_cache)) == {"5":{"title":"test_item44", "control_number":44.0}}
         assert json.loads(account_redis.get(max_cache)) == {"1":{"control_number":26.0, "title":"test_item26"}}
-        
+
     account_redis.delete(email)
     account_redis.delete(args_cache)
     account_redis.delete(max_cache)
 
-def test_pagination(app, indexed_10records, aggs_and_facet, search_url, admin_settings):
+
+# .tox/c1/bin/pytest --cov=invenio_records_rest tests/test_views_search.py::test_pagination -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-records-rest/.tox/c1/tmp
+def test_pagination(app, indexed_10records, search_url, admin_settings, search_index, facet_search, aggs_and_facet):
     """Test pagination."""
     with app.test_client() as client:
         # Limit records
@@ -188,7 +199,8 @@ def test_pagination(app, indexed_10records, aggs_and_facet, search_url, admin_se
         assert "prev" in data["links"]
 
 
-def test_page_links(app, indexed_10records, aggs_and_facet, search_url, admin_settings):
+# .tox/c1/bin/pytest --cov=invenio_records_rest tests/test_views_search.py::test_page_links -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-records-rest/.tox/c1/tmp
+def test_page_links(app, indexed_10records, search_url, admin_settings, search_index, facet_search, aggs_and_facet):
     """Test Link HTTP header on multi-page searches."""
     with app.test_client() as client:
         # Limit records
@@ -227,7 +239,8 @@ def test_page_links(app, indexed_10records, aggs_and_facet, search_url, admin_se
         assert "prev" in links and links["prev"] == first_url
 
 
-def test_query(app, indexed_10records, aggs_and_facet, search_url, admin_settings):
+# .tox/c1/bin/pytest --cov=invenio_records_rest tests/test_views_search.py::test_query -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-records-rest/.tox/c1/tmp
+def test_query(app, indexed_10records, search_url, admin_settings, search_index, facet_search, aggs_and_facet):
     """Test query."""
     with app.test_client() as client:
         # Valid query syntax
@@ -235,6 +248,7 @@ def test_query(app, indexed_10records, aggs_and_facet, search_url, admin_setting
         assert len(get_json(res)["hits"]["hits"]) == 1
 
 
+# .tox/c1/bin/pytest --cov=invenio_records_rest tests/test_views_search.py::test_search_query_syntax -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-records-rest/.tox/c1/tmp
 @pytest.mark.parametrize(
     "app",
     [
@@ -246,7 +260,7 @@ def test_query(app, indexed_10records, aggs_and_facet, search_url, admin_setting
     ],
     indirect=["app"],
 )
-def test_search_query_syntax(app, indexed_10records, aggs_and_facet, search_url, admin_settings):
+def test_search_query_syntax(app, indexed_10records, search_url, admin_settings, search_index, facet_search, aggs_and_facet):
     """Test search engine query syntax."""
     with app.test_client() as client:
         # Valid search query syntax
@@ -254,7 +268,8 @@ def test_search_query_syntax(app, indexed_10records, aggs_and_facet, search_url,
         assert len(get_json(res)["hits"]["hits"]) == 1
 
 
-def test_sort(app, indexed_10records, aggs_and_facet, search_url, admin_settings):
+# .tox/c1/bin/pytest --cov=invenio_records_rest tests/test_views_search.py::test_sort -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-records-rest/.tox/c1/tmp
+def test_sort(app, indexed_10records, search_url, admin_settings, search_index, facet_search, aggs_and_facet):
     """Test invalid accept header."""
     with app.test_client() as client:
         res = client.get(search_url, query_string={"sort": "-control_number"})
@@ -268,7 +283,8 @@ def test_sort(app, indexed_10records, aggs_and_facet, search_url, admin_settings
         assert get_json(res)["hits"]["hits"][0]["metadata"]["control_number"] == "1"
 
 
-def test_invalid_accept(app, indexed_10records, aggs_and_facet, search_url, admin_settings):
+# .tox/c1/bin/pytest --cov=invenio_records_rest tests/test_views_search.py::test_invalid_accept -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-records-rest/.tox/c1/tmp
+def test_invalid_accept(app, indexed_10records, search_url, admin_settings, search_index, facet_search, aggs_and_facet):
     """Test invalid accept header."""
     headers = [("Accept", "application/does_not_exist")]
 
@@ -280,7 +296,8 @@ def test_invalid_accept(app, indexed_10records, aggs_and_facet, search_url, admi
         assert data["status"] == 406
 
 
-def test_aggregations_info(app, indexed_10records, aggs_and_facet, search_url, admin_settings, facet_search, redis_connect):
+# .tox/c1/bin/pytest --cov=invenio_records_rest tests/test_views_search.py::test_aggregations_info -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-records-rest/.tox/c1/tmp
+def test_aggregations_info(app, indexed_10records, search_url, admin_settings, search_index, facet_search, aggs_and_facet, redis_connect):
     """Test aggregations."""
     with app.test_client() as client:
         # Facets are defined in the "app" fixture.
@@ -292,14 +309,16 @@ def test_aggregations_info(app, indexed_10records, aggs_and_facet, search_url, a
         assert data["aggregations"]["control_number"]["buckets"][0] == dict(key="1", doc_count=1)
 
 
-def test_filters(app, indexed_10records, aggs_and_facet, search_url, admin_settings, facet_search, redis_connect):
+# .tox/c1/bin/pytest --cov=invenio_records_rest tests/test_views_search.py::test_filters -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-records-rest/.tox/c1/tmp
+def test_filters(app, indexed_10records, search_url, admin_settings, search_index, facet_search, aggs_and_facet, redis_connect):
     """Test aggregations."""
     with app.test_client() as client:
         res = client.get(search_url, query_string=dict(control_number="4"))
         assert_hits_len(res, 1)
 
 
-def test_query_wrong(app, indexed_10records, aggs_and_facet, search_url, admin_settings):
+# .tox/c1/bin/pytest --cov=invenio_records_rest tests/test_views_search.py::test_query_wrong -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-records-rest/.tox/c1/tmp
+def test_query_wrong(app, indexed_10records, search_url, admin_settings, search_index, facet_search, aggs_and_facet):
     """Test invalid accept header."""
     with app.test_client() as client:
         res = client.get(search_url, query_string={"q": "test"})
@@ -315,6 +334,7 @@ def test_query_wrong(app, indexed_10records, aggs_and_facet, search_url, admin_s
         assert res.status_code == 200
 
 
+# .tox/c1/bin/pytest --cov=invenio_records_rest tests/test_views_search.py::test_search_exception -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-records-rest/.tox/c1/tmp
 @pytest.mark.parametrize(
     "app",
     [
@@ -336,6 +356,7 @@ def test_search_exception(app, indexed_10records, aggs_and_facet):
         )
 
 
+# .tox/c1/bin/pytest --cov=invenio_records_rest tests/test_views_search.py::test_dynamic_aggregation -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-records-rest/.tox/c1/tmp
 def test_dynamic_aggregation(app, indexed_records, search_url):
     """Test invalid accept header."""
     with app.test_client() as client:
@@ -440,6 +461,7 @@ def test_from_parameter_invalid_pagination(app, indexed_records, search_url):
         assert data["message"] == "Maximum number of 10000 results have been reached."
 
 
+# .tox/c1/bin/pytest --cov=invenio_records_rest tests/test_views_search.py::test_max_result_window_valid_params -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-records-rest/.tox/c1/tmp
 @pytest.mark.parametrize(
     "app",
     [
@@ -454,7 +476,7 @@ def test_from_parameter_invalid_pagination(app, indexed_records, search_url):
     ],
     indirect=["app"],
 )
-def test_max_result_window_valid_params(app, indexed_records, search_url):
+def test_max_result_window_valid_params(app, indexed_records, search_url, search_index, facet_search, aggs_and_facet):
     """Test max_result_window with a valid page/from/size parameters."""
     with app.test_client() as client:
         res = client.get(search_url, query_string={"size": 3})

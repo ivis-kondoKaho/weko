@@ -11,6 +11,7 @@
 import copy
 import json
 import os
+from os.path import dirname, join
 import pytest
 import pytz
 import shutil
@@ -18,10 +19,10 @@ import sys
 import tempfile
 import uuid
 
+from unittest.mock import patch
 
 from flask import Flask, g, url_for
 from flask_login import LoginManager, UserMixin
-from tests.helpers import create_record
 from invenio_access.models import ActionRoles
 from invenio_accounts import InvenioAccounts
 from invenio_accounts.testutils import create_test_user
@@ -49,8 +50,6 @@ from invenio_search import (
 from invenio_search.engine import dsl
 from invenio_search.engine import search as search_engine
 from invenio_search.errors import IndexAlreadyExistsError
-from mock import patch
-from os.path import dirname, join
 from sqlalchemy_utils.functions import create_database, database_exists
 from weko_admin.models import AdminSettings,FacetSearchSetting
 from weko_index_tree.models import Index
@@ -62,6 +61,7 @@ from weko_records_ui.config import (
     WEKO_RECORDS_UI_LICENSE_DICT
 )
 
+from .helpers import create_record
 
 sys.path.append(os.path.dirname(__file__))
 
@@ -72,24 +72,12 @@ class TestSearch(RecordsSearch):
     class Meta:
         """Test configuration."""
 
-        index = "invenio-records-rest"
+        index = "weko"
 
     def __init__(self, **kwargs):
         """Add extra options."""
         super(TestSearch, self).__init__(**kwargs)
         self._extra.update(**{"_source": {"excludes": ["_access"]}})
-
-
-class IndexFlusher(object):
-    """Simple object to flush an index."""
-
-    def __init__(self, search_class):
-        """Initialize instance."""
-        self.search_class = search_class
-
-    def flush_and_wait(self):
-        """Flush index and wait until operation is fully done."""
-        current_search.flush_and_refresh(self.search_class.Meta.index)
 
 
 @pytest.fixture(scope="session")
@@ -241,6 +229,27 @@ def app(request, search_class):
     search = InvenioSearch(app)
     InvenioRecordsREST(app)
     app.register_blueprint(create_blueprint_from_app(app))
+
+    def delete_user_from_cache(exception):
+        """Delete user from `flask.g` when the request is tearing down.
+
+        Flask-login==0.6.2 changed the way the user is saved i.e uses `flask.g`.
+        Flask.g is pointing to the application context which is initialized per
+        request. That said, `pytest-flask` is pushing an application context on each
+        test initialization that causes problems as subsequent requests during a test
+        are detecting the active application request and not popping it when the
+        sub-request is tearing down. That causes the logged in user to remain cached
+        for the whole duration of the test. To fix this, we add an explicit teardown
+        handler that will pop out the logged in user in each request and it will force
+        the user to be loaded each time.
+        """
+        from flask import g
+
+        if "_login_user" in g:
+            del g._login_user
+
+    app.teardown_request(delete_user_from_cache)
+
 
     with app.app_context():
         yield app

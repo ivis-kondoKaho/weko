@@ -45,6 +45,7 @@ def xml_search(*args, **kwargs):
     )
 
 
+# .tox/c1/bin/pytest --cov=invenio_records_rest tests/test_views_serializers.py::test_default_serializer -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-records-rest/.tox/c1/tmp
 @pytest.mark.parametrize(
     "app",
     [
@@ -65,7 +66,7 @@ def xml_search(*args, **kwargs):
     indirect=["app"],
     scope="function",
 )
-def test_default_serializer(app, db, search, indexed_records):
+def test_default_serializer(app, db, search, indexed_records, search_index, facet_search, aggs_and_facet):
     """Test default serializer."""
     # Create records
     accept_json = [("Accept", "application/json")]
@@ -97,6 +98,7 @@ def test_default_serializer(app, db, search, indexed_records):
         assert res.content_type == "application/xml"
 
 
+# .tox/c1/bin/pytest --cov=invenio_records_rest tests/test_views_serializers.py::test_serializer_aliases -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-records-rest/.tox/c1/tmp
 @pytest.mark.parametrize(
     "app",
     [
@@ -123,7 +125,7 @@ def test_default_serializer(app, db, search, indexed_records):
     indirect=["app"],
     scope="function",
 )
-def test_serializer_aliases(app, db, search, indexed_records):
+def test_serializer_aliases(app, db, search, indexed_records, facet_search, aggs_and_facet):
     """Test serializers aliases."""
     with app.test_client() as client:
         res = client.get("/records/")

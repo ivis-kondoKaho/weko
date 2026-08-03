@@ -99,6 +99,7 @@ def test_get_record(test_custom_endpoints_app, test_records):
             assert record == data["metadata"]
 
 
+# .tox/c1/bin/pytest --cov=invenio_records_rest tests/test_custom_endpoints.py::test_get_records_list -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-records-rest/.tox/c1/tmp
 @pytest.mark.parametrize(
     "test_custom_endpoints_app",
     [
@@ -109,7 +110,7 @@ def test_get_record(test_custom_endpoints_app, test_records):
     ],
     indirect=["test_custom_endpoints_app"],
 )
-def test_get_records_list(test_custom_endpoints_app, indexed_records):
+def test_get_records_list(test_custom_endpoints_app, indexed_records, facet_search, aggs_and_facet):
     """Test the creation of a custom endpoint using RecordsListResource."""
     blueprint = Blueprint(
         "test_invenio_records_rest",
