@@ -24,6 +24,9 @@ from invenio_records_rest.utils import marshmallow_major_version
 from invenio_rest.serializer import BaseSchema as Schema
 from marshmallow import ValidationError, fields
 
+if marshmallow_major_version >= 3:
+    from marshmallow import EXCLUDE
+
 
 class _TestSchema(Schema):
     """Test schema."""
@@ -51,9 +54,16 @@ class _TestSchemaNested(Schema):
 class _TestMetadataSchema(Schema):
     """Test schema."""
 
+    if marshmallow_major_version >= 3:
+        class Meta:
+            unknown = EXCLUDE
+
     recid = fields.Str()
     title = fields.List(fields.Str())
+    control_number = PersistentIdentifier()
 
+
+# .tox/c1/bin/pytest --cov=invenio_records_rest tests/test_marshmallow_loader.py::test_marshmallow_load -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-records-rest/.tox/c1/tmp
 def test_marshmallow_load(app, db, search_index, record_data10, search_url, search_class):
     """Test marshmallow loader."""
     app.config["RECORDS_REST_DEFAULT_LOADERS"] = {

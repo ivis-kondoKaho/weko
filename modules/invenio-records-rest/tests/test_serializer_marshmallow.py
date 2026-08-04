@@ -26,38 +26,44 @@ class _TestSchema(Schema):
     author = fields.Function(lambda metadata, context: context["author"])
 
 
-def test_transform_record():
+# .tox/c1/bin/pytest --cov=invenio_records_rest tests/test_serializer_marshmallow.py::test_transform_record -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-records-rest/.tox/c1/tmp
+def test_transform_record(app, db):
     """Test marshmallow serializer."""
-    serializer = SimpleMarshmallowSerializer(_TestSchema)
-    data = serializer.transform_record(
-        PersistentIdentifier(pid_type="recid", pid_value="1"),
-        Record({"title": "test"}),
-        marshmallow_context=dict(author="test2"),
-    )
-    assert data == dict(title="test", author="test2")
+    with app.app_context():
+        serializer = SimpleMarshmallowSerializer(_TestSchema)
+        data = serializer.transform_record(
+            PersistentIdentifier(pid_type="recid", pid_value="1"),
+            Record({"title": "test"}),
+            marshmallow_context=dict(author="test2"),
+        )
+        assert data == dict(title="test", author="test2")
 
 
-def test_transform_search_hit():
+# .tox/c1/bin/pytest --cov=invenio_records_rest tests/test_serializer_marshmallow.py::test_transform_search_hit -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-records-rest/.tox/c1/tmp
+def test_transform_search_hit(app, db):
     """Test marshmallow serializer."""
-    serializer = SimpleMarshmallowSerializer(_TestSchema)
-    data = serializer.transform_record(
-        PersistentIdentifier(pid_type="recid", pid_value="1"),
-        Record({"title": "test"}),
-        marshmallow_context=dict(author="test2"),
-    )
-    assert data == dict(title="test", author="test2")
+    with app.app_context():
+        serializer = SimpleMarshmallowSerializer(_TestSchema)
+        data = serializer.transform_record(
+            PersistentIdentifier(pid_type="recid", pid_value="1"),
+            Record({"title": "test"}),
+            marshmallow_context=dict(author="test2"),
+        )
+        assert data == dict(title="test", author="test2")
 
 
-def test_transform_record_default_schema():
+# .tox/c1/bin/pytest --cov=invenio_records_rest tests/test_serializer_marshmallow.py::test_transform_record_default_schema -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-records-rest/.tox/c1/tmp
+def test_transform_record_default_schema(app, db):
     """Test marshmallow serializer without providing a schema."""
-    serializer = SimpleMarshmallowSerializer()
-    data = serializer.transform_record(
-        PersistentIdentifier(pid_type="recid", pid_value="1"), Record({"title": "test"})
-    )
-    assert data == {
-        "id": "1",
-        "created": None,
-        "links": {},
-        "metadata": {"title": "test"},
-        "updated": None,
-    }
+    with app.app_context():
+        serializer = SimpleMarshmallowSerializer()
+        data = serializer.transform_record(
+            PersistentIdentifier(pid_type="recid", pid_value="1"), Record({"title": "test"})
+        )
+        assert data == {
+            "id": "1",
+            "created": None,
+            "links": {},
+            "metadata": {"title": "test"},
+            "updated": None,
+        }

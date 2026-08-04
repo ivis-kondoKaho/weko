@@ -16,10 +16,11 @@ from helpers import _mock_validate_fail, assert_hits_len, get_json, record_url, 
 from invenio_records.models import RecordMetadata
 
 
+# .tox/c1/bin/pytest --cov=invenio_records_rest tests/test_views_item_put.py -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-records-rest/.tox/c1/tmp
 @pytest.mark.parametrize(
     "content_type", ["application/json", "application/json;charset=utf-8"]
 )
-def test_valid_put(app, search, test_records, content_type, search_url, search_class):
+def test_valid_put(app, search, test_records, content_type, search_url, search_class, search_index, facet_search, aggs_and_facet):
     """Test VALID record patch request (PATCH .../records/<record_id>)."""
     HEADERS = [("Accept", "application/json"), ("Content-Type", content_type)]
 
@@ -41,11 +42,12 @@ def test_valid_put(app, search, test_records, content_type, search_url, search_c
         assert get_json(client.get(url))["metadata"]["year"] == 1234
 
 
+# .tox/c1/bin/pytest --cov=invenio_records_rest tests/test_views_item_put.py::test_valid_put_etag -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-records-rest/.tox/c1/tmp
 @pytest.mark.parametrize(
     "content_type", ["application/json", "application/json;charset=utf-8"]
 )
 def test_valid_put_etag(
-    app, search, test_records, content_type, search_url, search_class
+    app, search, test_records, content_type, search_url, search_class, search_index, facet_search, aggs_and_facet
 ):
     """Test concurrency control with etags."""
     HEADERS = [("Accept", "application/json"), ("Content-Type", content_type)]
@@ -74,11 +76,12 @@ def test_valid_put_etag(
         assert_hits_len(res, 1)
 
 
+# .tox/c1/bin/pytest --cov=invenio_records_rest tests/test_views_item_put.py::test_put_on_deleted -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-records-rest/.tox/c1/tmp
 @pytest.mark.parametrize(
     "content_type", ["application/json", "application/json;charset=utf-8"]
 )
 def test_put_on_deleted(
-    app, db, search, test_data, content_type, search_url, search_class
+    app, db, search, test_data, content_type, search_url, search_class, search_index, facet_search, aggs_and_facet
 ):
     """Test putting to a deleted record."""
     with app.test_client() as client:

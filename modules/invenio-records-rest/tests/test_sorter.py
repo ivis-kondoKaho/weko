@@ -36,26 +36,40 @@ def test_reverse_order():
     assert reverse_order("invalid") is None
 
 
+# .tox/c1/bin/pytest --cov=invenio_records_rest tests/test_sorter.py::test_eval_field_string -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-records-rest/.tox/c1/tmp
 def test_eval_field_string(app):
-    """Test getting locales."""
+    """Test string evaluation for non-locale-dependent fields."""
     app.config["I18N_LANGUAGES"] = [("ja", "Japanese"), ("en", "English")]
-    
-    """Test string evaluation."""
-    assert eval_field("myfield", True) == dict(myfield=dict(order="asc",unmapped_type="long"))
-    assert eval_field("myfield", False) == dict(myfield=dict(order="desc",unmapped_type="long"))
-    assert eval_field("-myfield", True) == dict(myfield=dict(order="desc",unmapped_type="long"))
-    assert eval_field("-myfield", False) == dict(myfield=dict(order="asc",unmapped_type="long"))
-    assert eval_field("myfield", True, True) == dict(myfield=dict(order="asc",unmapped_type="long",nested=True))
-    with app.test_request_context(
-        headers=[("Accept-Language","ja")]):
-            assert eval_field("title", True) == dict(title=dict(order="asc",unmapped_type="long",mode="max"))
-            assert eval_field("title", False) == dict(title=dict(order="desc",unmapped_type="long",mode="max"))
-    with app.test_request_context(
-        headers=[("Accept-Language","en")]):
-            assert eval_field("title", True) == dict(title=dict(order="asc",unmapped_type="long",mode="min"))
-            assert eval_field("title", False) == dict(title=dict(order="desc",unmapped_type="long",mode="min"))
-    assert eval_field("date_range", True) == {"_script":{"type":"number", "script":{"lang":"painless","source":"def x = params._source.date_range1;SimpleDateFormat format = new SimpleDateFormat(); if (x != null && !x.isEmpty() ) { def value = x.get(0).get(\"gte\"); if(value != null && !value.equals(\"\")) { if(value.length() > 7) { format.applyPattern(\"yyyy-MM-dd\"); } else if(value.length() > 4) { format.applyPattern(\"yyyy-MM\");  } else { format.applyPattern(\"yyyy\"); } try { return format.parse(value).getTime(); } catch(Exception e) {} } } format.applyPattern(\"yyyy\"); return format.parse(\"9999\").getTime();"},"order": "asc"}}
-    assert eval_field("date_range", False) == {"_script":{"type":"number", "script":{"lang":"painless","source":"def x = params._source.date_range1;SimpleDateFormat format = new SimpleDateFormat(); if (x != null && !x.isEmpty() ) { def value = x.get(0).get(\"lte\"); if(value != null && !value.equals(\"\")) { if(value.length() > 7) { format.applyPattern(\"yyyy-MM-dd\"); } else if(value.length() > 4) { format.applyPattern(\"yyyy-MM\");  } else { format.applyPattern(\"yyyy\"); } try { return format.parse(value).getTime(); } catch(Exception e) {} } } format.applyPattern(\"yyyy\"); return format.parse(\"0\").getTime();"},"order": "desc"}}
+
+    assert eval_field("myfield", True) == dict(myfield=dict(order="asc", unmapped_type="long"))
+    assert eval_field("myfield", False) == dict(myfield=dict(order="desc", unmapped_type="long"))
+    assert eval_field("-myfield", True) == dict(myfield=dict(order="desc", unmapped_type="long"))
+    assert eval_field("-myfield", False) == dict(myfield=dict(order="asc", unmapped_type="long"))
+    assert eval_field("myfield", True, True) == dict(myfield=dict(order="asc", unmapped_type="long", nested=True))
+
+    assert eval_field("date_range", True) == {"_script": {"type": "number", "script": {"lang": "painless", "source": "def x = params._source.date_range1;SimpleDateFormat format = new SimpleDateFormat(); if (x != null && !x.isEmpty() ) { def value = x.get(0).get(\"gte\"); if(value != null && !value.equals(\"\")) { if(value.length() > 7) { format.applyPattern(\"yyyy-MM-dd\"); } else if(value.length() > 4) { format.applyPattern(\"yyyy-MM\");  } else { format.applyPattern(\"yyyy\"); } try { return format.parse(value).getTime(); } catch(Exception e) {} } } format.applyPattern(\"yyyy\"); return format.parse(\"9999\").getTime();"}, "order": "asc"}}
+    assert eval_field("date_range", False) == {"_script": {"type": "number", "script": {"lang": "painless", "source": "def x = params._source.date_range1;SimpleDateFormat format = new SimpleDateFormat(); if (x != null && !x.isEmpty() ) { def value = x.get(0).get(\"lte\"); if(value != null && !value.equals(\"\")) { if(value.length() > 7) { format.applyPattern(\"yyyy-MM-dd\"); } else if(value.length() > 4) { format.applyPattern(\"yyyy-MM\");  } else { format.applyPattern(\"yyyy\"); } try { return format.parse(value).getTime(); } catch(Exception e) {} } } format.applyPattern(\"yyyy\"); return format.parse(\"0\").getTime();"}, "order": "desc"}}
+
+
+# .tox/c1/bin/pytest --cov=invenio_records_rest tests/test_sorter.py::test_eval_field_string_title_ja -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-records-rest/.tox/c1/tmp
+def test_eval_field_string_title_ja(app):
+    """Test title sorting mode when the locale resolves to Japanese."""
+    app.config["I18N_LANGUAGES"] = [("ja", "Japanese"), ("en", "English")]
+
+    with app.test_request_context(headers=[("Accept-Language", "ja")]):
+        assert eval_field("title", True) == dict(title=dict(order="asc", unmapped_type="long", mode="max"))
+        assert eval_field("title", False) == dict(title=dict(order="desc", unmapped_type="long", mode="max"))
+
+
+# .tox/c1/bin/pytest --cov=invenio_records_rest tests/test_sorter.py::test_eval_field_string_title_en -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-records-rest/.tox/c1/tmp
+def test_eval_field_string_title_en(app):
+    """Test title sorting mode when the locale resolves to English."""
+    app.config["I18N_LANGUAGES"] = [("ja", "Japanese"), ("en", "English")]
+
+    with app.test_request_context(headers=[("Accept-Language", "en")]):
+        assert eval_field("title", True) == dict(title=dict(order="asc", unmapped_type="long", mode="min"))
+        assert eval_field("title", False) == dict(title=dict(order="desc", unmapped_type="long", mode="min"))
+
 
 def test_eval_field_callable():
     """Test string evaluation."""
@@ -190,7 +204,7 @@ def test_default_sorter_factory(app):
         assert query.to_dict()["sort"] == \
             [{"_script":{"type":"number", "script": "Float.parseFloat(doc['control_number'].value)", "order": "asc"}}]
         assert urlargs == dict(sort="controlnumber")
-    
+
     # Reverse sort with control_number
     with app.test_request_context("/?sort=-controlnumber"):
         query, urlargs = default_sorter_factory(dsl.Search(), "myindex")
@@ -205,7 +219,7 @@ def test_default_sorter_factory(app):
             [{"_script":{"type":"number","script":{"lang":"painless","source":"def x = params._source.date_range1;SimpleDateFormat format = new SimpleDateFormat(); if (x != null && !x.isEmpty() ) { def value = x.get(0).get(\"gte\"); if(value != null && !value.equals(\"\")) { if(value.length() > 7) { format.applyPattern(\"yyyy-MM-dd\"); } else if(value.length() > 4) { format.applyPattern(\"yyyy-MM\");  } else { format.applyPattern(\"yyyy\"); } try { return format.parse(value).getTime(); } catch(Exception e) {} } } format.applyPattern(\"yyyy\"); return format.parse(\"9999\").getTime();"},"order": "asc"}},
             {"_script":{"type":"number", "script": "Float.parseFloat(doc['control_number'].value)", "order": "asc"}}]
         assert urlargs == dict(sort="temporal")
-    
+
     # Reverse sort with control_number
     with app.test_request_context("/?sort=-temporal"):
         query, urlargs = default_sorter_factory(dsl.Search(), "myindex")

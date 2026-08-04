@@ -10,13 +10,9 @@
 """Facets tests."""
 
 import pytest
+from unittest.mock import patch
+
 from flask import Flask
-from invenio_rest.errors import RESTValidationError
-from invenio_search.engine import dsl
-from werkzeug.datastructures import MultiDict
-
-from weko_admin.models import FacetSearchSetting
-
 from invenio_records_rest.facets import (
      _aggregations,
      _create_filter_dsl,
@@ -27,12 +23,19 @@ from invenio_records_rest.facets import (
      terms_filter,
      terms_condition_filter
 )
+from invenio_rest.errors import RESTValidationError
+from invenio_search.engine import dsl
+from werkzeug.datastructures import MultiDict
+from weko_admin.models import FacetSearchSetting
+
+# .tox/c1/bin/pytest --cov=invenio_records_rest tests/test_facets.py -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-records-rest/.tox/c1/tmp
 
 
 def test_terms_filter():
     """Test terms filter."""
     f = terms_filter("test")
     assert f(["a", "b"]).to_dict() == dict(terms={"test": ["a", "b"]})
+
 
 def test_terms_codition_filter():
     """Test terms filter."""
@@ -43,7 +46,6 @@ def test_terms_codition_filter():
     f2 = terms_condition_filter('test', True)
     assert f2(['a']).to_dict() == dict(terms={'test': ['a']})
     assert f2(['a', 'b']).to_dict() == dict(bool={'must':[dict(term={'test': 'a'}), dict(term={'test': 'b'})]})
-
 
 
 def test_range_filter():
@@ -91,6 +93,7 @@ def test_create_filter_dsl():
         filters, args = _create_filter_dsl(kwargs, defs)
         assert not filters
         assert args == kwargs
+
 
 def test_create_filter_dsl_accessrights():
     app = Flask('testapp')
@@ -144,6 +147,7 @@ def test_create_filter_dsl_accessrights():
         filters, args = _create_filter_dsl(kwargs, definitions)
         assert filters == [dsl.Q('terms', other=['open'])]
         assert args.getlist('other') == ['open']
+
 
 def test_post_filter(app):
     """Test post filter."""
@@ -207,6 +211,7 @@ def test_aggregations(app):
         assert _aggregations(search, defs).to_dict()["aggs"] == defs
 
 
+# .tox/c1/bin/pytest --cov=invenio_records_rest tests/test_facets.py::test_default_facets_factory -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-records-rest/.tox/c1/tmp
 def test_default_facets_factory(app, db, search_user, redis_connect):
     """Test aggregations."""
     test_redis_key = "test_facet_search_query_has_permission"
@@ -259,12 +264,11 @@ def test_default_facets_factory(app, db, search_user, redis_connect):
     db.session.commit()
     app.config['SEARCH_UI_SEARCH_INDEX'] = 'testidx'
     app.config["RECORDS_REST_FACETS"]["testidx"] = defs
-    from mock import patch
     with patch("weko_search_ui.permissions.search_permission.can",return_value=True):
         with patch("weko_admin.utils.get_query_key_by_permission", return_value=test_redis_key):
             with app.test_request_context("?type=a&subtype=b"):
                 search = dsl.Search().query(dsl.Q(query="value"))
-                search, urlkwargs = default_facets_factory(search, "testidx")
+                search, urlkwargs = default_facets_factory(search, "test-testidx")
                 assert search.to_dict()["aggs"] == defs["aggs"]
                 assert "post_filter" in search.to_dict()
                 assert search.to_dict()['post_filter'] == defs['post_filters']
@@ -278,6 +282,7 @@ def test_default_facets_factory(app, db, search_user, redis_connect):
     redis_connect.delete(test_redis_key)
 
 
+# .tox/c1/bin/pytest --cov=invenio_records_rest tests/test_facets.py::test_selecting_one_specified_facet -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-records-rest/.tox/c1/tmp
 def test_selecting_one_specified_facet(app):
     defs = dict(
         aggs=dict(
@@ -299,12 +304,15 @@ def test_selecting_one_specified_facet(app):
 
     expected_agg = dict(facet_2=dict(terms=dict(field="other_field")))
     app.config["RECORDS_REST_FACETS"]["test_facet_names"] = defs
-    with app.test_request_context("?type=a&subtype=b&facets=facet_2"):
-        search = dsl.Search().query(dsl.Q(query="value"))
-        search, urlkwargs = default_facets_factory(search, "test_facet_names")
-        assert search.to_dict().get("aggs") == expected_agg
+    with patch("weko_search_ui.permissions.search_permission.can", return_value=True), \
+         patch("weko_admin.utils.get_facet_search_query", return_value={"test_facet_names": defs}):
+        with app.test_request_context("?type=a&subtype=b&facets=facet_2"):
+            search = dsl.Search().query(dsl.Q(query="value"))
+            search, urlkwargs = default_facets_factory(search, "test_facet_names")
+            assert search.to_dict().get("aggs") == expected_agg
 
 
+# .tox/c1/bin/pytest --cov=invenio_records_rest tests/test_facets.py::test_selecting_specified_facet -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-records-rest/.tox/c1/tmp
 def test_selecting_specified_facet(app):
     defs = dict(
         aggs=dict(
@@ -331,12 +339,15 @@ def test_selecting_specified_facet(app):
         facet_3=dict(terms=dict(field="some_other_field")),
     )
     app.config["RECORDS_REST_FACETS"]["test_facet_names"] = defs
-    with app.test_request_context("?type=a&subtype=b&facets=facet_1,facet_3"):
-        search = dsl.Search().query(dsl.Q(query="value"))
-        search, urlkwargs = default_facets_factory(search, "test_facet_names")
-        assert search.to_dict().get("aggs") == expected_agg
+    with patch("weko_search_ui.permissions.search_permission.can", return_value=True), \
+         patch("weko_admin.utils.get_facet_search_query", return_value={"test_facet_names": defs}):
+        with app.test_request_context("?type=a&subtype=b&facets=facet_1,facet_3"):
+            search = dsl.Search().query(dsl.Q(query="value"))
+            search, urlkwargs = default_facets_factory(search, "test_facet_names")
+            assert search.to_dict().get("aggs") == expected_agg
 
 
+# .tox/c1/bin/pytest --cov=invenio_records_rest tests/test_facets.py::test_turn_off_facets -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-records-rest/.tox/c1/tmp
 def test_turn_off_facets(app):
     defs = dict(
         aggs=dict(
@@ -357,12 +368,15 @@ def test_turn_off_facets(app):
     )
 
     app.config["RECORDS_REST_FACETS"]["test_facet_names"] = defs
-    with app.test_request_context("?type=a&subtype=b&facets=null"):
-        search = dsl.Search().query(dsl.Q(query="value"))
-        search, urlkwargs = default_facets_factory(search, "test_facet_names")
-        assert search.to_dict().get("aggs") is None
+    with patch("weko_search_ui.permissions.search_permission.can", return_value=True), \
+         patch("weko_admin.utils.get_facet_search_query", return_value={"test_facet_names": defs}):
+        with app.test_request_context("?type=a&subtype=b&facets=null"):
+            search = dsl.Search().query(dsl.Q(query="value"))
+            search, urlkwargs = default_facets_factory(search, "test_facet_names")
+            assert search.to_dict().get("aggs") is None
 
 
+# .tox/c1/bin/pytest --cov=invenio_records_rest tests/test_facets.py::test_selecting_all_facets_by_default -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-records-rest/.tox/c1/tmp
 def test_selecting_all_facets_by_default(app):
     defs = dict(
         aggs=dict(
@@ -384,7 +398,9 @@ def test_selecting_all_facets_by_default(app):
 
     expected_agg = defs["aggs"]
     app.config["RECORDS_REST_FACETS"]["test_facet_names"] = defs
-    with app.test_request_context("?type=a&subtype=b"):
-        search = dsl.Search().query(dsl.Q(query="value"))
-        search, urlkwargs = default_facets_factory(search, "test_facet_names")
-        assert search.to_dict().get("aggs") == expected_agg
+    with patch("weko_search_ui.permissions.search_permission.can", return_value=True), \
+         patch("weko_admin.utils.get_facet_search_query", return_value={"test_facet_names": defs}):
+        with app.test_request_context("?type=a&subtype=b"):
+            search = dsl.Search().query(dsl.Q(query="value"))
+            search, urlkwargs = default_facets_factory(search, "test_facet_names")
+            assert search.to_dict().get("aggs") == expected_agg

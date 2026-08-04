@@ -10,17 +10,20 @@
 
 import json
 
-import mock
+from unittest import mock
 import pytest
 from helpers import _mock_validate_fail, assert_hits_len, get_json, record_url, IndexFlusher
 from invenio_records.models import RecordMetadata
 
+# .tox/c1/bin/pytest --cov=invenio_records_rest tests/test_views_item_patch.py -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-records-rest/.tox/c1/tmp
+
+# .tox/c1/bin/pytest --cov=invenio_records_rest tests/test_views_item_patch.py::test_valid_patch -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-records-rest/.tox/c1/tmp
 @pytest.mark.parametrize(
     "content_type",
     ["application/json-patch+json", "application/json-patch+json;charset=utf-8"],
 )
 def test_valid_patch(
-    app, search, test_records, test_patch, content_type, search_url, search_class
+    app, search, test_records, test_patch, content_type, search_url, search_class, search_index, facet_search, aggs_and_facet
 ):
     """Test VALID record patch request (PATCH .../records/<record_id>)."""
     HEADERS = [("Accept", "application/json"), ("Content-Type", content_type)]
@@ -49,12 +52,13 @@ def test_valid_patch(
         assert_hits_len(res, 1)
 
 
+# .tox/c1/bin/pytest --cov=invenio_records_rest tests/test_views_item_patch.py::test_patch_deleted -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-records-rest/.tox/c1/tmp
 @pytest.mark.parametrize(
     "content_type",
     ["application/json-patch+json", "application/json-patch+json;charset=utf-8"],
 )
 def test_patch_deleted(
-    app, db, search, test_data, test_patch, content_type, search_url, search_class
+    app, db, search, test_data, test_patch, content_type, search_url, search_class, search_index, facet_search, aggs_and_facet
 ):
     """Test patching deleted record."""
     HEADERS = [("Accept", "application/json"), ("Content-Type", content_type)]
@@ -76,9 +80,10 @@ def test_patch_deleted(
         assert_hits_len(res, 0)
 
 
+# .tox/c1/bin/pytest --cov=invenio_records_rest tests/test_views_item_patch.py::test_invalid_patch -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-records-rest/.tox/c1/tmp
 @pytest.mark.parametrize("charset", ["", ";charset=utf-8"])
 def test_invalid_patch(
-    app, search, test_records, test_patch, charset, search_url, search_class
+    app, search, test_records, test_patch, charset, search_url, search_class, search_index, facet_search, aggs_and_facet
 ):
     """Test INVALID record put request (PUT .../records/<record_id>)."""
     HEADERS = [
@@ -144,6 +149,7 @@ def test_invalid_patch(
         assert RecordMetadata.query.filter_by(id=obj_id).first().json["year"]==2015
 
 
+# .tox/c1/bin/pytest --cov=invenio_records_rest tests/test_views_item_patch.py::test_validation_error -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-records-rest/.tox/c1/tmp
 @mock.patch("invenio_records.api.Record.commit", _mock_validate_fail)
 @pytest.mark.parametrize(
     "content_type",
