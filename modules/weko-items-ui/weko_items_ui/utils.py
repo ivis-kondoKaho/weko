@@ -3402,24 +3402,12 @@ def hide_meta_data_for_role(record):
     """
     is_hidden = True
 
-    # Admin users
-    supers = current_app.config['WEKO_PERMISSION_SUPER_ROLE_USER']
-
-    roles = current_user.roles if current_user else []
-    for role in list(roles):
-        if role.name in supers:
-            is_hidden = False
-            break
-    # Community users
-    community_role_names = current_app.config[
-        'WEKO_PERMISSION_ROLE_COMMUNITY']
-    for role in list(roles):
-        if role.name in community_role_names:
-            is_hidden = False
-            break
+    is_admin, _ = get_user_roles(is_super_role=True)
+    if is_admin:
+        is_hidden = False
 
     # Item Register users and Sharing users
-    if record and current_user.get_id() in [
+    if record and current_user and current_user.get_id() in [
         record.get('weko_creator_id'),
             [str(shared_id) for shared_id in record.get('weko_shared_ids', [])]
     ]:

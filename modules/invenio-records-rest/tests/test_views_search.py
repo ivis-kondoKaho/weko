@@ -357,7 +357,7 @@ def test_search_exception(app, indexed_10records, aggs_and_facet):
 
 
 # .tox/c1/bin/pytest --cov=invenio_records_rest tests/test_views_search.py::test_dynamic_aggregation -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-records-rest/.tox/c1/tmp
-def test_dynamic_aggregation(app, indexed_records, search_url):
+def test_dynamic_aggregation(app, indexed_records, search_url, search_index, facet_search, aggs_and_facet):
     """Test invalid accept header."""
     with app.test_client() as client:
 
@@ -365,7 +365,7 @@ def test_dynamic_aggregation(app, indexed_records, search_url):
             """Include only my deposits in the aggregation."""
             return {"terms": {"field": "stars", "include": [4, 5]}}
 
-        app.config["RECORDS_REST_FACETS"]["invenio-records-rest"]["aggs"][
+        app.config["RECORDS_REST_FACETS"]["test-weko"]["aggs"][
             "test"
         ] = stars_aggs
         res = client.get(search_url, query_string={"q": ""})
@@ -383,6 +383,7 @@ def test_dynamic_aggregation(app, indexed_records, search_url):
         )
 
 
+# .tox/c1/bin/pytest --cov=invenio_records_rest tests/test_views_search.py::test_from_parameter_pagination -vv -s --cov-branch --cov-report=term --basetemp=/code/modules/invenio-records-rest/.tox/c1/tmp
 def test_from_parameter_pagination(app, indexed_records, search_url):
     """Test "from" parameter pagination."""
     with app.test_client() as client:

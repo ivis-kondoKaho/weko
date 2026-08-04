@@ -866,7 +866,8 @@ def check_index_permissions(record=None, index_id=None, index_path_list=None,
         """
         from weko_records_ui.utils import is_future
         in_admin_view_scope = False
-        role_names = [role.name for role in current_user.roles]
+        role_names = [role.name for role in current_user.roles] \
+            if current_user.is_authenticated else []
         if roles[0]:
             # In case admin role.
             in_admin_view_scope = True
@@ -1403,7 +1404,7 @@ def get_all_records_in_index(index_id):
 
 def check_comadmin(roles, index_id):
     """Check if the user is a community admin based on roles and group_id."""
-    if roles is not None and any(
+    if roles is not None and current_user.is_authenticated and any(
             role.name == current_app.config.get("WEKO_ADMIN_PERMISSION_ROLE_COMMUNITY")
             for role in current_user.roles
     ):

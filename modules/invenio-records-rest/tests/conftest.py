@@ -50,6 +50,7 @@ from invenio_search import (
 from invenio_search.engine import dsl
 from invenio_search.engine import search as search_engine
 from invenio_search.errors import IndexAlreadyExistsError
+from invenio_search.utils import build_alias_name
 from sqlalchemy_utils.functions import create_database, database_exists
 from weko_admin.models import AdminSettings,FacetSearchSetting
 from weko_index_tree.models import Index
@@ -135,13 +136,13 @@ def app(request, search_class):
         PRESERVE_CONTEXT_ON_EXCEPTION=False,
         DEBUG=False,
         ACCOUNTS_JWT_ENABLE=False,
-        INDEXER_DEFAULT_INDEX="{}-weko-item-v1.0.0".format("test"),
+        INDEXER_DEFAULT_INDEX="weko-item-v1.0.0",
         SEARCH_OPENSEARCH_HOSTS=os.environ.get(
                     'SEARCH_OPENSEARCH_HOSTS', 'opensearch'),
         SEARCH_HOSTS=os.environ.get(
             'SEARCH_HOST', 'opensearch'
         ),
-        SEARCH_CLIENT_CONFIG={"http_auth":(os.environ['INVENIO_OPENSEARCH_USER'],os.environ['INVENIO_OPENSEARCH_PASS']),"use_ssl":True, "verify_certs":False},
+        SEARCH_CLIENT_CONFIG={"http_auth":(os.environ['INVENIO_OPENSEARCH_USER'],os.environ['INVENIO_OPENSEARCH_PASS']),"use_ssl":True, "verify_certs":False, "timeout": 120, "max_retries": 3},
         RECORDS_REST_ENDPOINTS=copy.deepcopy(config.RECORDS_REST_ENDPOINTS),
         RECORDS_REST_DEFAULT_CREATE_PERMISSION_FACTORY=None,
         RECORDS_REST_DEFAULT_DELETE_PERMISSION_FACTORY=None,
@@ -181,6 +182,10 @@ def app(request, search_class):
         CACHE_REDIS_HOST="redis",
         REDIS_PORT="6379",
         ACCOUNTS_SESSION_REDIS_DB_NO=1,
+        WEKO_ACCOUNTS_GAKUNIN_GROUP_PATTERN_DICT={
+            'role_keyword': 'roles',
+            'prefix': 'jc'
+        },
         SQLALCHEMY_DATABASE_URI=os.getenv("SQLALCHEMY_DATABASE_URI",
                                           "postgresql+psycopg2://invenio:dbpass123@postgresql:5432/wekotest"),
         SQLALCHEMY_TRACK_MODIFICATIONS=True,
@@ -292,19 +297,15 @@ def search_index(app):
     with open("tests/data/item-v1.0.0.json","r") as f:
         mapping = json.load(f)
 
+    actual_index = build_alias_name(app.config["INDEXER_DEFAULT_INDEX"])
+
     current_search_client.indices.delete(index="test-*")
     try:
-        current_search_client.indices.create(
-            app.config["INDEXER_DEFAULT_INDEX"], body=mapping
-        )
-        current_search_client.indices.put_alias(
-            index=app.config["INDEXER_DEFAULT_INDEX"], name="test-weko"
-        )
+        current_search_client.indices.create(actual_index, body=mapping)
+        current_search_client.indices.put_alias(index=actual_index, name="test-weko")
     except:
         current_search_client.indices.create("test-weko-items", body=mapping)
-        current_search_client.indices.put_alias(
-            index="test-weko-items", name="test-weko"
-        )
+        current_search_client.indices.put_alias(index="test-weko-items", name="test-weko")
     try:
         yield current_search_client
     finally:
@@ -410,7 +411,7 @@ def record_data10(indexes):
 def register_record(id, indexer, index_path):
     record_data = record_data_with_itemtype(id, index_path)
     pid, record = create_record(record_data)
-    index = indexer.record_to_index(record)
+    index = build_alias_name(indexer.record_to_index(record))
     search_data = {
         "title":record_data["title"],
         "control_number": str(id),
@@ -593,11 +594,18 @@ def facet_search(db):
 
 @pytest.fixture()
 def aggs_and_facet(redis_connect, facet_search):
-    test_redis_key = "test_facet_search_query_has_permission"
-    redis_connect.delete(test_redis_key)
-    with patch("weko_admin.utils.get_query_key_by_permission", return_value=test_redis_key):
+    test_redis_key_has_permission = "test_facet_search_query_has_permission"
+    test_redis_key_no_permission = "test_facet_search_query_no_permission"
+    redis_connect.delete(test_redis_key_has_permission)
+    redis_connect.delete(test_redis_key_no_permission)
+
+    def _key(has_permission):
+        return test_redis_key_has_permission if has_permission else test_redis_key_no_permission
+
+    with patch("weko_admin.utils.get_query_key_by_permission", side_effect=_key):
         yield
-    redis_connect.delete(test_redis_key)
+    redis_connect.delete(test_redis_key_has_permission)
+    redis_connect.delete(test_redis_key_no_permission)
 
 @pytest.fixture()
 def indexes(app, db):

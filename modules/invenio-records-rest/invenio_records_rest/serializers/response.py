@@ -70,7 +70,7 @@ def search_responsify(serializer, mimetype):
         for record in records:
             item_type_id_lst.add(
                 record['_source'].get('item_type_id')
-                or record['_source']['_item_metadata'].get('item_type_id'))
+                or record['_source'].get('_item_metadata', {}).get('item_type_id'))
         item_type_id_lst = list(item_type_id_lst)
 
         item_type_dict = __get_item_types(item_type_id_lst)
@@ -81,7 +81,7 @@ def search_responsify(serializer, mimetype):
                     record, settings,
                     item_type_dict.get(str(
                         record['_source'].get('item_type_id')
-                        or record['_source']['_item_metadata'].get(
+                        or record['_source'].get('_item_metadata', {}).get(
                             'item_type_id'))
                     )
                 )

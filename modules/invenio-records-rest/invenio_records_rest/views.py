@@ -467,9 +467,9 @@ def need_record_permission(factory_name):
 
 def _validate_pagination_args(args):
     if args.get("page") and args.get("from"):
+        message = "The query parameters from and page must not be used at the same time."
         raise WebargsValidationError(
-            "The query parameters from and page must not be " "used at the same time.",
-            field_names=["page", "from"],
+            {"page": [message], "from": [message]}
         )
 
 
